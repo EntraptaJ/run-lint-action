@@ -2,26 +2,27 @@
 import { getInput, setFailed } from '@actions/core';
 import { sync } from 'glob';
 import { parse } from 'path';
-import run from './run';
+import spawn from 'advanced-spawn-async'
+import run from  './run'
 import * as github from '@actions/github';
 
-const token = getInput('github-token', { required: true });
+const token = getInput('github-token');
 const octokit = new github.GitHub(token);
 
-interface FailLintArgs {
-  pr: number
-  result: string
+interface FailTestArgs {
+  pr: number;
+  result: string;
 }
 
-async function failLint({ pr, result }: FailLintArgs): Promise<void> {
-  const message: string = `\`npm run lint\` has failed\n\`\`\`${result}\`\`\``
+async function failLint({ pr, result }: FailTestArgs): Promise<void> {
+  const message: string = `\`npm run lint\` has failed\n\`\`\`${result}\`\`\``;
   octokit.issues.createComment({
     owner: github.context.repo.owner,
     repo: github.context.repo.repo,
     issue_number: pr,
     body: message,
   });
-  setFailed(message)
+  setFailed(message);
 }
 
 async function runLint(): Promise<void> {
@@ -30,13 +31,13 @@ async function runLint(): Promise<void> {
 
   try {
     const filenames = sync(`${process.env.GITHUB_WORKSPACE}/**/package.json`);
-
     for (const filename of filenames) {
       await run(`npm install`, { cwd: parse(filename).dir });
-      const { code, result } = await run(`npm run lint`);
-
-      console.log({ code, result })
-      if (code !== 0) failLint({ pr: pr.number, result })
+      const { onclose, process, onexit } = spawn('npm', ['run', 'lint'], { cwd: parse(filename).dir, event: 'close' })
+      onclose.catch(async (test) => {
+        failLint({ pr: pr.number, result: test.info.output.toString() })
+      })
+      
     }
   } catch (error) {
     setFailed(error.message);

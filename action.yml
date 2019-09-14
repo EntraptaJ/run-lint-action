@@ -1,4 +1,4 @@
-name: 'NPM Lint Runner'
+name: 'NPM Test Runner'
 description: ''
 author: 'Kristian Jones'
 runs:
